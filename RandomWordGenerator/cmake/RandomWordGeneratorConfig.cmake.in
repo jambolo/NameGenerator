@@ -1,8 +1,8 @@
-get_filename_component(RandomWordGenerator_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(@PROJECT_NAME@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
-if(NOT TARGET RandomWordGenerator::RandomWordGenerator)
-    include("${RandomWordGenerator_CMAKE_DIR}/RandomWordGeneratorTargets.cmake")
+if(NOT TARGET @PROJECT_NAME@::@PROJECT_NAME@)
+    include("${@PROJECT_NAME@_CMAKE_DIR}/@PROJECT_NAME@Targets.cmake")
 endif()
 
-set(RandomWordGenerator_LIBRARIES RandomWordGenerator::RandomWordGenerator)
+set(@PROJECT_NAME@_LIBRARIES @PROJECT_NAME@::@PROJECT_NAME@)
