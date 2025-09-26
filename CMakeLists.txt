@@ -1,36 +1,108 @@
-cmake_minimum_required (VERSION 3.10)
-project(NameGenerator VERSION 1.0.0 LANGUAGES CXX)
-
-option(BUILD_SHARED_LIBS "Build libraries as DLLs" FALSE)
-
-#if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-#    find_package(nlohmann_json REQUIRED)
-#endif()
-
-set(GENERATE_NAME_INCLUDE_PATHS
-    .
+cmake_minimum_required(VERSION 3.21)
+project(NameGenerator 
+    VERSION 0.1.0 
+    DESCRIPTION "A name generator application using RandomWordGenerator library"
+    LANGUAGES CXX
 )
 
-set(GENERATE_NAME_SOURCES
-    main.cpp
-)
-source_group(Sources FILES ${GENERATE_NAME_SOURCES})
+# Modern CMake policy settings
+cmake_policy(SET CMP0077 NEW)  # option() honors normal variables
+cmake_policy(SET CMP0135 NEW)  # DOWNLOAD_EXTRACT_TIMESTAMP option
 
-add_executable(generate_name ${GENERATE_NAME_SOURCES})
-target_include_directories(generate_name PRIVATE ${GENERATE_NAME_INCLUDE_PATHS})
-target_link_libraries(generate_name PUBLIC
-    RandomWordGenerator
-)
-target_compile_definitions(generate_name
-    PRIVATE
-        -DNOMINMAX
-        -DWIN32_LEAN_AND_MEAN
-        -DVC_EXTRALEAN
-        -D_CRT_SECURE_NO_WARNINGS
-        -D_SECURE_SCL=0
-        -D_SCL_SECURE_NO_WARNINGS
+# Feature requirements
+include(CMakeDependentOption)
+include(GNUInstallDirs)
+
+# Build options
+option(BUILD_SHARED_LIBS "Build libraries as DLLs" OFF)
+
+# Only enable testing and packaging when this is the main project
+set(IS_TOP_LEVEL_PROJECT OFF)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(IS_TOP_LEVEL_PROJECT ON)
+endif()
+
+cmake_dependent_option(NAMEGEN_BUILD_TESTS 
+    "Build and run tests" 
+    ON 
+    "IS_TOP_LEVEL_PROJECT" 
+    OFF
 )
 
-#configure_file("${PROJECT_SOURCE_DIR}/Version.h.in" "${PROJECT_BINARY_DIR}/Version.h")
+# C++ standard requirements
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Compiler-specific options
+if(MSVC)
+    add_compile_options(/W4)
+    add_compile_definitions(
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        VC_EXTRALEAN
+        _CRT_SECURE_NO_WARNINGS
+        _SECURE_SCL=0
+        _SCL_SECURE_NO_WARNINGS
+    )
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+
+#########################################################################
+# Dependencies                                                          #
+#########################################################################
+
+include(FetchContent)
+FetchContent_Declare(
+    CLI11
+    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+    GIT_TAG        v2.4.2
+)
+FetchContent_MakeAvailable(CLI11)
 
 add_subdirectory(RandomWordGenerator)
+
+#########################################################################
+# Executable                                                            #
+#########################################################################
+
+# Main executable target
+add_executable(generate_name)
+target_sources(generate_name
+    PRIVATE
+        main.cpp
+)
+
+# Modern target-based approach
+target_include_directories(generate_name 
+    PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(generate_name 
+    PRIVATE
+        RandomWordGenerator::RandomWordGenerator
+        CLI11::CLI11
+)
+
+# Apply the same compile features as the library
+target_compile_features(generate_name PRIVATE cxx_std_17)
+
+# IDE source grouping
+source_group("Source Files" FILES main.cpp)
+
+
+#########################################################################
+# Testing                                                               #
+#########################################################################
+
+if(NAMEGEN_BUILD_TESTS)
+    include(CTest)
+    enable_testing()
+    message(STATUS "${PROJECT_NAME}: Testing is enabled")
+    
+    # Enable testing for the RandomWordGenerator library
+    set(RANDOMWORDGEN_BUILD_TESTS ON CACHE BOOL "" FORCE)
+endif()

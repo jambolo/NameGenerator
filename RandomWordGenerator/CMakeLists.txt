@@ -1,77 +1,156 @@
-cmake_minimum_required (VERSION 3.10)
-project(RandomWordGenerator VERSION 1.0.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.21)
+project(RandomWordGenerator 
+    VERSION 0.1.0 
+    DESCRIPTION "A library for generating random words using distribution analysis of a dictionary"
+    LANGUAGES CXX
+)
 
-option(BUILD_SHARED_LIBS "Build libraries as DLLs" FALSE)
+# Modern CMake policy settings
+cmake_policy(SET CMP0077 NEW)  # option() honors normal variables
+cmake_policy(SET CMP0135 NEW)  # DOWNLOAD_EXTRACT_TIMESTAMP option
+
+# Feature requirements
+include(CMakeDependentOption)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+# Build options
+option(BUILD_SHARED_LIBS "Build libraries as DLLs" OFF)
+
+# Only enable certain features when this is the main project
+set(IS_TOP_LEVEL_PROJECT OFF)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(IS_TOP_LEVEL_PROJECT ON)
+endif()
+
+cmake_dependent_option(RANDOMWORDGEN_BUILD_TESTS 
+    "Build and run RandomWordGenerator tests" 
+    ON 
+    "IS_TOP_LEVEL_PROJECT" 
+    OFF
+)
+
+cmake_dependent_option(RANDOMWORDGEN_BUILD_DOCS 
+    "Build RandomWordGenerator documentation with Doxygen" 
+    OFF 
+    "IS_TOP_LEVEL_PROJECT" 
+    OFF
+)
 
 #########################################################################
-# Build                                                                 #
+# Dependencies                                                          #
 #########################################################################
 
-find_package(Misc REQUIRED)
+#########################################################################
+# Main Library Target                                                   #
+#########################################################################
 
-set(PUBLIC_INCLUDE_PATHS
-    $<INSTALL_INTERFACE:include>    
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-)
+add_library(${PROJECT_NAME})
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-set(PRIVATE_INCLUDE_PATHS
-    .
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/RandomWordGenerator
-)
-
-set(SOURCES
-    include/RandomWordGenerator/Generator.h
-    include/RandomWordGenerator/Factory.h
-    
-    Generator.cpp
-    Factory.cpp
-)
-source_group(Sources FILES ${SOURCES})
-
-add_library(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} Misc::Misc)
-target_include_directories(${PROJECT_NAME} PUBLIC ${PUBLIC_INCLUDE_PATHS} PRIVATE ${PRIVATE_INCLUDE_PATHS})
-target_compile_definitions(${PROJECT_NAME}
+# Modern target_sources approach
+target_sources(${PROJECT_NAME}
+    PUBLIC
+        FILE_SET HEADERS
+        BASE_DIRS include
+        FILES
+            include/RandomWordGenerator/Generator.h
     PRIVATE
-        -DNOMINMAX
-        -DWIN32_LEAN_AND_MEAN
-        -DVC_EXTRALEAN
-        -D_CRT_SECURE_NO_WARNINGS
-        -D_SECURE_SCL=0
-        -D_SCL_SECURE_NO_WARNINGS
+        Generator.cpp
 )
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
-#configure_file("${PROJECT_SOURCE_DIR}/Version.h.in" "${PROJECT_BINARY_DIR}/Version.h")
+# Target properties
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+set_target_properties(${PROJECT_NAME} 
+    PROPERTIES 
+        CXX_EXTENSIONS OFF
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
+# Include directories using modern generator expressions
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/RandomWordGenerator
+)
+
+# Link dependencies
+
+# Compiler-specific definitions
+if(MSVC)
+    target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            NOMINMAX
+            WIN32_LEAN_AND_MEAN
+            VC_EXTRALEAN
+            _CRT_SECURE_NO_WARNINGS
+            _SECURE_SCL=0
+            _SCL_SECURE_NO_WARNINGS
+    )
+endif()
+
+# IDE source grouping
+source_group("Header Files" 
+    FILES 
+        include/RandomWordGenerator/Generator.h
+        include/RandomWordGenerator/Factory.h
+)
+source_group("Source Files" 
+    FILES 
+        Generator.cpp 
+        Factory.cpp
+)
 
 #########################################################################
 # Documentation                                                         #
 #########################################################################
 
-set(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY "" CACHE PATH "Doxygen output directory (empty to disable)")
-if(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY)
+if(RANDOMWORDGEN_BUILD_DOCS)
     find_package(Doxygen)
     if(DOXYGEN_FOUND)
-        set(DOXYGEN_OUTPUT_DIRECTORY ${${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY})
-        configure_file(Doxyfile.in ${PROJECT_BINARY_DIR}/Doxyfile)
-        add_custom_target(doxygen ALL ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile
-            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            COMMENT "Generating API documentation with Doxygen" VERBATIM
-            SOURCES ${PROJECT_BINARY_DIR}/Doxyfile
+        set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs)
+        set(DOXYGEN_PROJECT_NAME ${PROJECT_NAME})
+        set(DOXYGEN_PROJECT_VERSION ${PROJECT_VERSION})
+        set(DOXYGEN_PROJECT_BRIEF "${PROJECT_DESCRIPTION}")
+        
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in 
+                      ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile 
+                      @ONLY)
+        
+        add_custom_target(${PROJECT_NAME}_docs
+            COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "Generating ${PROJECT_NAME} API documentation with Doxygen"
+            VERBATIM
+            SOURCES ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         )
-    endif(DOXYGEN_FOUND)
+        
+        # Add to all target only if this is the main project
+        if(IS_TOP_LEVEL_PROJECT)
+            add_custom_target(docs ALL DEPENDS ${PROJECT_NAME}_docs)
+        endif()
+    else()
+        message(WARNING "Doxygen not found. Documentation will not be generated.")
+    endif()
 endif()
 
 #########################################################################
 # Testing                                                               #
 #########################################################################
 
-if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+if(RANDOMWORDGEN_BUILD_TESTS)
     include(CTest)
-    message(STATUS "Testing is enabled. Turn on BUILD_TESTING to build tests.")
-    if(BUILD_TESTING)
+    enable_testing()
+    message(STATUS "${PROJECT_NAME}: Testing is enabled")
+    
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
         add_subdirectory(test)
+    else()
+        message(WARNING "${PROJECT_NAME}: test directory not found")
     endif()
 endif()
 
@@ -79,45 +158,69 @@ endif()
 # Installation                                                          #
 #########################################################################
 
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-
-include(GNUInstallDirs)
+# Configure installation paths
 set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
 
+# Install the library and headers
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}-targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Install the targets file
 install(EXPORT ${PROJECT_NAME}-targets
     FILE ${PROJECT_NAME}Targets.cmake
     NAMESPACE ${PROJECT_NAME}::
     DESTINATION ${INSTALL_CONFIGDIR}
 )
 
-# Create a ConfigVersion.cmake file
-include(CMakePackageConfigHelpers)
+# Create and install package configuration files
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     VERSION ${PROJECT_VERSION}
-    COMPATIBILITY AnyNewerVersion
+    COMPATIBILITY SameMajorVersion  # More strict than AnyNewerVersion
 )
 
-configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
-)
+# Check if config template exists
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in)
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+    )
+else()
+    # Create a basic config file if template doesn't exist
+    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake "
+include(CMakeFindDependencyMacro)
+find_dependency(Misc REQUIRED)
+include(\${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}Targets.cmake)
+")
+endif()
 
-# Install the config, configversion and custom find modules
+# Install configuration files
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     DESTINATION ${INSTALL_CONFIGDIR}
 )
 
-# Exporting from the build tree
-export(EXPORT ${PROJECT_NAME}-targets FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake NAMESPACE ${PROJECT_NAME}::)
+# Export from build tree for development
+export(EXPORT ${PROJECT_NAME}-targets 
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake 
+    NAMESPACE ${PROJECT_NAME}::
+)
 
-# Register package in user's package registry
-export(PACKAGE ${PROJECT_NAME})
+# Register package in user's package registry (only if top-level)
+if(IS_TOP_LEVEL_PROJECT)
+    export(PACKAGE ${PROJECT_NAME})
+endif()
+
+# Install documentation if built
+if(RANDOMWORDGEN_BUILD_DOCS AND DOXYGEN_FOUND)
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/
+            DESTINATION ${CMAKE_INSTALL_DOCDIR}
+            OPTIONAL)
+endif()

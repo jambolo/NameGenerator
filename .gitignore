@@ -1,0 +1,73 @@
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+out/
+build/
+Debug/
+Release/
+x64/
+ipch/
+*.opensdf
+*.sdf
+*.cachefile
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+install_manifest.txt
+
+# Visual Studio Code settings
+.vscode/
+
+# Compiled source
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+*.dylib
+*.lib
+*.a
+*.obj
+*.pdb
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Backup and temporary files
+*~
+*.tmp
+*.log
+
+# Others
+*.VC.db
+*.VC.opendb
+*.dir/
+*.tlog/
+*.idb
+*.ipdb
+
+# Package management
+*.nuget/
+*.nupkg
+
+# Test output
+Testing/
+CTestCostData.txt
+LastTest.log
+LastTestsFailed.log
+
+# CMake files
+CMakeSettings.json
