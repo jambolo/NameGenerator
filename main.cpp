@@ -2,26 +2,35 @@
 #include <RandomWordGenerator/Generator.h>
 
 #include <algorithm>
-#include <cassert>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
+#include <string_view>
+
+namespace fs = std::filesystem;
 
 namespace
 {
-static char constexpr MALE_NAME_DISTRIBUTION_FILE_NAME[]   = "C:\\Users\\John\\Projects\\NameGenerator\\dist.male.first.txt";
-static char constexpr FEMALE_NAME_DISTRIBUTION_FILE_NAME[] = "C:\\Users\\John\\Projects\\NameGenerator\\dist.female.first.txt";
-static char constexpr LAST_NAME_DISTRIBUTION_FILE_NAME[]   = "C:\\Users\\John\\Projects\\NameGenerator\\dist.all.last.txt";
+// Use string_view and relative paths or make configurable
+static constexpr std::string_view MALE_NAME_DISTRIBUTION_FILE_NAME   = "dist.male.first.txt";
+static constexpr std::string_view FEMALE_NAME_DISTRIBUTION_FILE_NAME = "dist.female.first.txt";
+static constexpr std::string_view LAST_NAME_DISTRIBUTION_FILE_NAME   = "dist.all.last.txt";
 
-std::shared_ptr<RandomWordGenerator> createGeneratorFromDistribution(char const * filename);
+std::unique_ptr<RandomWordGenerator> createGeneratorFromDistribution(std::string_view filename);
 }
 
 int main(int argc, char ** argv)
 {
     CLI::App app{"Name Generator - Generates random names using distribution analysis"};
+    bool     version = false;
+    int      minSize = 0;
+    int      maxSize = 0;
 
-    bool version = false;
     app.add_flag("-v,--version", version, "Show version information");
+    app.add_option("--min", minSize, "Minimum name size (0 = ignore)")->check(CLI::NonNegativeNumber);
+    app.add_option("--max", maxSize, "Maximum name size (0 = ignore)")->check(CLI::NonNegativeNumber);
 
     // Parse command line
     CLI11_PARSE(app, argc, argv);
@@ -29,34 +38,42 @@ int main(int argc, char ** argv)
     // Handle version flag
     if (version)
     {
-        std::cout << "Name Generator v0.1.0" << std::endl;
+        std::cout << "Name Generator v0.1.0\n";
         return 0;
     }
 
-    // Create a male name generator
+    // Validate size parameters
+    if (maxSize == 0)
+        maxSize = std::numeric_limits<int>::max(); // No maximum size
+    if (minSize > maxSize)
+    {
+        std::cerr << "Error: Minimum name size cannot be greater than maximum name size\n";
+        return 1;
+    }
 
-    std::shared_ptr<RandomWordGenerator> maleNameGenerator = createGeneratorFromDistribution(MALE_NAME_DISTRIBUTION_FILE_NAME);
+    // Create a male name generator
+    auto maleNameGenerator = createGeneratorFromDistribution(MALE_NAME_DISTRIBUTION_FILE_NAME);
     if (!maleNameGenerator)
     {
-        std::cerr << "Cannot create word generator from '" << MALE_NAME_DISTRIBUTION_FILE_NAME << "'." << std::endl;
+        std::cerr << "Cannot create word generator from '" << MALE_NAME_DISTRIBUTION_FILE_NAME << "'.\n";
         return 1;
     }
 
     // Create a female name generator
 
-    std::shared_ptr<RandomWordGenerator> femaleNameGenerator = createGeneratorFromDistribution(FEMALE_NAME_DISTRIBUTION_FILE_NAME);
+    auto femaleNameGenerator = createGeneratorFromDistribution(FEMALE_NAME_DISTRIBUTION_FILE_NAME);
     if (!femaleNameGenerator)
     {
-        std::cerr << "Cannot create word generator from '" << FEMALE_NAME_DISTRIBUTION_FILE_NAME << "'." << std::endl;
+        std::cerr << "Cannot create word generator from '" << FEMALE_NAME_DISTRIBUTION_FILE_NAME << "'.\n";
         return 1;
     }
 
     // Create a last name generator
 
-    std::shared_ptr<RandomWordGenerator> lastNameGenerator = createGeneratorFromDistribution(LAST_NAME_DISTRIBUTION_FILE_NAME);
+    auto lastNameGenerator = createGeneratorFromDistribution(LAST_NAME_DISTRIBUTION_FILE_NAME);
     if (!lastNameGenerator)
     {
-        std::cerr << "Cannot create word generator from '" << LAST_NAME_DISTRIBUTION_FILE_NAME << "'." << std::endl;
+        std::cerr << "Cannot create word generator from '" << LAST_NAME_DISTRIBUTION_FILE_NAME << "'.\n";
         return 1;
     }
 
@@ -65,18 +82,36 @@ int main(int argc, char ** argv)
 
     // Generate 10 male names
 
-    std::cout << std::endl << "---- Male Names ----" << std::endl;
+    std::cout << "\n---- Male Names ----\n";
     for (int i = 0; i < 10; ++i)
     {
-        std::cout << (*maleNameGenerator)(rng, 2) << ' ' << (*lastNameGenerator)(rng, 2) << std::endl;
+        std::string firstName;
+        std::string lastName;
+
+        do
+        {
+            firstName = (*maleNameGenerator)(rng);
+            lastName  = (*lastNameGenerator)(rng);
+        } while (firstName.size() < minSize || firstName.size() > maxSize || lastName.size() < minSize ||
+                 lastName.size() > maxSize);
+        std::cout << firstName << ' ' << lastName << '\n';
     }
 
     // Generate 10 female names
 
-    std::cout << std::endl << "---- Female Names ----" << std::endl;
+    std::cout << "\n---- Female Names ----\n";
     for (int i = 0; i < 10; ++i)
     {
-        std::cout << (*femaleNameGenerator)(rng, 2) << ' ' << (*lastNameGenerator)(rng, 2) << std::endl;
+        std::string firstName;
+        std::string lastName;
+
+        do
+        {
+            firstName = (*femaleNameGenerator)(rng);
+            lastName  = (*lastNameGenerator)(rng);
+        } while (firstName.size() < minSize || firstName.size() > maxSize || lastName.size() < minSize ||
+                 lastName.size() > maxSize);
+        std::cout << firstName << ' ' << lastName << '\n';
     }
 
     return 0;
@@ -84,45 +119,37 @@ int main(int argc, char ** argv)
 
 namespace
 {
-std::shared_ptr<RandomWordGenerator> createGeneratorFromDistribution(char const * filename)
+std::unique_ptr<RandomWordGenerator> createGeneratorFromDistribution(std::string_view filename)
 {
-    std::ifstream file(filename);
+    // Use filesystem for better path handling
+    if (!fs::exists(filename))
+    {
+        return nullptr;
+    }
+
+    std::ifstream file{std::string(filename)};
     if (!file.is_open())
         return nullptr;
 
-    std::shared_ptr<RandomWordGenerator> generator = std::make_shared<RandomWordGenerator>();
+    auto generator = std::make_unique<RandomWordGenerator>();
 
-    while (!file.eof())
+    std::string line;
+    while (std::getline(file, line))
     {
-        std::string name;
-        float       frequency;
-        float       cumulative;
-        int         rank;
+        std::istringstream iss(line);
+        std::string        name;
+        float              frequency, cumulative;
+        int                rank;
 
-        file >> name >> frequency >> cumulative >> rank;
-        if (!file.eof())
+        if (iss >> name >> frequency >> cumulative >> rank)
         {
-            std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-            generator->analyzeWord(name.c_str(), frequency);
+            // Use lambda for character transformation
+            std::transform(name.begin(), name.end(), name.begin(), [](char c) { return std::tolower(c); });
+            generator->analyzeWord(name, frequency);
         }
     }
+
     generator->finalize();
-
-    //        {
-    //            string dumpfilename    = filename;
-    //            dumpfilename += ".fdt.txt";
-    //
-    //            ofstream out( dumpfilename.c_str() );
-    //            if ( out.is_open() )
-    //            {
-    //                out << factory;
-    //            }
-    //            else
-    //            {
-    //                cout << "Unable to open '"<< dumpfilename << "' for output." << endl;
-    //            }
-    //        }
-
     return generator;
 }
 

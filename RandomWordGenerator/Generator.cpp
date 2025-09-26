@@ -1,22 +1,28 @@
 #include "Generator.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 #include <iostream>
 
 RandomWordGenerator::RandomWordGenerator()
+    : frequencies_{}
+    , cdfs_{}
+    , finalized_{false}
 {
-    std::memset(frequencies_, 0, sizeof(frequencies_));
-    std::memset(cdfs_, 0, sizeof(cdfs_));
-    finalized_ = false;
 }
 
 //! @param    table    Distribution function table
 
 RandomWordGenerator::RandomWordGenerator(Table table)
+    : frequencies_{}
+    , finalized_{true}
 {
-    std::memcpy(cdfs_, table, sizeof(cdfs_));
-    finalized_ = true;
+    // Copy table row by row into cdfs_
+    for (size_t i = 0; i < cdfs_.size(); ++i)
+    {
+        std::copy(table[i], table[i] + cdfs_[i].size(), cdfs_[i].begin());
+    }
 }
 
 //! @param  word    Word to process
@@ -24,36 +30,25 @@ RandomWordGenerator::RandomWordGenerator(Table table)
 //!
 //! @return     true if the text was successfully processed
 
-bool RandomWordGenerator::analyzeWord(char const * word, float factor /*= 1.0f*/)
+bool RandomWordGenerator::analyzeWord(std::string_view word, float factor /*= 1.0f*/)
 {
-    if (!word || finalized_)
-        return false;
-
-    size_t length = strlen(word);
-
-    if (length == 0)
+    if (word.empty() || finalized_)
         return false;
 
     // All characters must be in the alphabet
-    for (size_t i = 0; i < length; ++i)
+    if (!std::all_of(word.begin(), word.end(), [](char c) { return ALPHABET.find(c) != std::string_view::npos; }))
+        return false;
+
+    size_t i0 = TERMINATOR;
+    for (auto c : word)
     {
-        if (ALPHABET.find(word[i]) == std::string::npos)
-            return false;
-    }
-
-    size_t c0 = TERMINATOR;
-
-    for (size_t i = 0; i < length; ++i)
-    {
-        size_t c = ALPHABET.find(word[i]);
-
-        frequencies_[c0][c] += factor;
-
-        c0 = c;
+        auto i = ALPHABET.find(c);
+        frequencies_[i0][i] += factor;
+        i0 = i;
     }
 
     // Add the distribution for the terminator
-    frequencies_[c0][TERMINATOR] += factor;
+    frequencies_[i0][TERMINATOR] += factor;
 
     return true;
 }
@@ -65,45 +60,32 @@ bool RandomWordGenerator::analyzeWord(char const * word, float factor /*= 1.0f*/
 //!
 //! @return     true if the text was successfully processed
 //!
-//! @warning    The text is not added if the factory has been finalized or the text is empty.
+//! @warning    The text is not added if the generator has been finalized or the text is empty.
 
-bool RandomWordGenerator::analyzeText(char const * text, float factor /*= 1.0f*/)
+bool RandomWordGenerator::analyzeText(std::string_view text, float factor /*= 1.0f*/)
 {
-    if (!text || finalized_)
+    if (text.empty() || finalized_)
         return false;
 
-    size_t       length      = strlen(text);
-    char const * end_of_text = text + length;
-
-    if (length == 0)
-        return false;
-
-    char const * start = text;
-
-    // Skip to the first character found in the alphabet
-    while (start < end_of_text && ALPHABET.find(*start) == std::string::npos)
+    // Lambda to check if character is in alphabet
+    auto inAlphabet = [](char c)
     {
-        ++start;
-    }
+        return ALPHABET.find(c) != std::string_view::npos;
+    };
 
-    while (start < end_of_text)
+    // Find the start of the first word
+    auto start = std::find_if(text.begin(), text.end(), inAlphabet);
+
+    while (start != text.end())
     {
-        // Find the end of the word (first character not in the alphabet
-        char const * end = start + 1;
-        while (end < end_of_text && ALPHABET.find(*end) != std::string::npos)
-        {
-            ++end;
-        }
+        // Find the end of the word
+        auto end = std::find_if_not(start + 1, text.end(), inAlphabet);
 
         // Analyze the word
-        analyzeWord(std::string(start, end).c_str(), factor);
+        analyzeWord(text.substr(start - text.begin(), end - start), factor);
 
-        // Move to the start of the next word
-        start = end;
-        while (start < end_of_text && ALPHABET.find(*start) == std::string::npos)
-        {
-            ++start;
-        }
+        // Find the start of the next word
+        start = std::find_if(end, text.end(), inAlphabet);
     }
 
     return true;
@@ -141,62 +123,39 @@ void RandomWordGenerator::finalize()
         }
     }
 
+    // Mark the generator as finalized. frequencies_ is no longer considered valid
     finalized_ = true;
 }
 
 //!
 //! @param  rng         Entropy source
-//! @param  maxLength   Maximum number of characters in the word. If max_length == 0, then the length is unbounded.
 //!
-//! @return        The generated word
+//! @return        The generated word as a string
 
-std::string RandomWordGenerator::operator()(std::minstd_rand & rng, size_t minLength /* = 1*/, size_t maxLength /* = 0*/)
+std::string RandomWordGenerator::operator()(std::minstd_rand & rng)
 {
     // If the generator has not been finalized, then finalize it now
     if (!finalized_)
         finalize();
 
     std::string word;
-    size_t      i0 = ALPHABET_SIZE;
 
-    // Generate up to maxLength characters (or unlimited if maxLength == 0)
-    while (word.size() < maxLength || maxLength == 0)
+    // Generate
+    for (size_t i0 = next(rng, TERMINATOR); i0 != TERMINATOR; i0 = next(rng, i0))
     {
-        // Generate the next character
-        char c = nextCharacter(rng, i0);
-
-        // If the word is terminated then we are done unless the minimum length has not been reached
-        if (c == 0)
-        {
-            if (word.size() < minLength)
-            {
-                // Try again
-                word.clear();
-                i0 = ALPHABET_SIZE;
-                continue;
-            }
-            else
-            {
-                break; // Done
-            }
-        }
-
-        // Append the character to the word
-        word += c;
-
-        // Keep track of the last character
-        i0 = toIndex(c);
+        word += toCharacter(i0);
     }
 
     return word;
 }
 
-char RandomWordGenerator::nextCharacter(std::minstd_rand & rng, size_t i0)
+size_t RandomWordGenerator::next(std::minstd_rand & rng, size_t i0)
 {
-    auto begin = &cdfs_[i0][0];
-    auto end   = &cdfs_[i0][ALPHABET_SIZE + 1];
-    auto i     = std::upper_bound(begin, end, randomFloat_(rng));
-    return (i != end) ? toCharacter(std::distance(begin, i)) : 0;
+    assert(i0 <= ALPHABET_SIZE);
+    auto const & cdf = cdfs_[i0];
+    auto         i   = std::upper_bound(cdf.begin(), cdf.end(), randomFloat_(rng));
+    // Note: end is possible due to rounding errors
+    return (i != cdf.end()) ? std::distance(cdf.begin(), i) : TERMINATOR;
 }
 
 std::ostream & operator<<(std::ostream & s, RandomWordGenerator const & g)
@@ -208,11 +167,11 @@ std::ostream & operator<<(std::ostream & s, RandomWordGenerator const & g)
         return s;
     }
 
-    for (int i = 0; i < RandomWordGenerator::ALPHABET_SIZE + 1; ++i)
+    for (auto const & row : g.cdfs_)
     {
-        for (int j = 0; j < RandomWordGenerator::ALPHABET_SIZE + 1; ++j)
+        for (float value : row)
         {
-            s << g.cdfs_[i][j] << ' ';
+            s << value << ' ';
         }
     }
     return s;

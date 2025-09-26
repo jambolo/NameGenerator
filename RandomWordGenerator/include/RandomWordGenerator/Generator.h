@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -30,13 +31,13 @@ public:
     ~RandomWordGenerator() = default;
 
     //! Constructor.
-    RandomWordGenerator(Table table);
+    explicit RandomWordGenerator(Table table);
 
     //! Adds a word to the distribution table.
-    bool analyzeWord(char const * word, float factor = 1.0f);
+    bool analyzeWord(std::string_view word, float factor = 1.0f);
 
     //! Adds words from the text to the distribution table.
-    bool analyzeText(char const * text, float factor = 1.0f);
+    bool analyzeText(std::string_view text, float factor = 1.0f);
 
     //! Finalizes the generator.
     void finalize();
@@ -45,25 +46,36 @@ public:
     bool isFinalized() const { return finalized_; }
 
     //! Returns a generated word.
-    std::string operator()(std::minstd_rand & rng, size_t minLength = 1, size_t maxLength = 0);
+    std::string operator()(std::minstd_rand & rng);
 
 private:
+    // Serialization support
     friend std::ostream & operator<<(std::ostream & s, RandomWordGenerator const & g);
     friend std::istream & operator>>(std::istream & s, RandomWordGenerator & g);
 
-    char   nextCharacter(std::minstd_rand & rng, size_t c0);
+    // Randomly selects the next character following i0.
+    size_t   next(std::minstd_rand & rng, size_t i0);
+
+    // Finds the index of a character in the alphabet, or TERMINATOR if not found.
     size_t toIndex(char c)
     {
         size_t result = ALPHABET.find(c);
         return (result != std::string::npos) ? result : TERMINATOR;
     }
 
+    // Finds the ith character in the alphabet, or 0 if the index is out of range.
     char toCharacter(size_t i) { return (i < ALPHABET.size()) ? ALPHABET[i] : 0; }
 
+    // Returns a random float in the range [0.0f, 1.0f).
     std::uniform_real_distribution<float> randomFloat_ = std::uniform_real_distribution<float>(0.0f, 1.0f);
 
-    float frequencies_[ALPHABET_SIZE + 1][ALPHABET_SIZE + 1];
-    float cdfs_[ALPHABET_SIZE + 1][ALPHABET_SIZE + 1];
+    // Frequencies for each character following each character.
+    std::array<std::array<float, ALPHABET_SIZE + 1>, ALPHABET_SIZE + 1> frequencies_;
+
+    // Cumulative distribution functions for each character following each character.
+    std::array<std::array<float, ALPHABET_SIZE + 1>, ALPHABET_SIZE + 1> cdfs_;
+
+    // True if the generator has been finalized.
     bool  finalized_ = false;
 };
 

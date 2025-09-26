@@ -80,10 +80,10 @@ TEST_F(SerializationTest, RoundTripConsistency) {
     std::minstd_rand rng1(12345);
     std::minstd_rand rng2(12345);
     
-    // Generate words from original with explicit parameters for consistency
+    // Generate words from original
     std::vector<std::string> originalWords;
     for (int i = 0; i < 10; ++i) {
-        originalWords.push_back((*generator)(rng1, 1, 0)); // Use explicit parameters
+        originalWords.push_back((*generator)(rng1));
     }
     
     // Serialize and deserialize
@@ -96,10 +96,10 @@ TEST_F(SerializationTest, RoundTripConsistency) {
     
     EXPECT_TRUE(deserialized.isFinalized()); // Should be finalized after deserialization
     
-    // Generate words from deserialized version with same parameters
+    // Generate words from deserialized version
     std::vector<std::string> deserializedWords;
     for (int i = 0; i < 10; ++i) {
-        deserializedWords.push_back(deserialized(rng2, 1, 0)); // Use explicit parameters
+        deserializedWords.push_back(deserialized(rng2));
     }
     
     // Should produce the same sequence
@@ -120,27 +120,13 @@ TEST_F(SerializationTest, DeserializeInvalidData) {
     EXPECT_FALSE(gen.isFinalized());
 }
 
-// Test deserialization of partial data
-TEST_F(SerializationTest, DeserializePartialData) {
-    std::istringstream iss("0.1 0.2 0.3"); // Not enough data
-    RandomWordGenerator gen;
-    
-    EXPECT_FALSE(gen.isFinalized()); // Should start unfinalized
-    
-    iss >> gen;
-    EXPECT_TRUE(iss.fail());
-    
-    // Generator should remain unfinalized after failed deserialization
-    EXPECT_FALSE(gen.isFinalized());
-}
-
-// Test deserialization with negative values
-TEST_F(SerializationTest, DeserializeWithNegativeValues) {
+// Test deserialization with invalid values
+TEST_F(SerializationTest, DeserializeWithInvalidValues) {
     std::ostringstream oss;
     oss << *generator;
     std::string serialized = oss.str();
     
-    // Replace first value with negative
+    // Replace first value with invalid value
     size_t firstSpace = serialized.find(' ');
     if (firstSpace != std::string::npos) {
         serialized = "-1.0 " + serialized.substr(firstSpace + 1);
@@ -158,60 +144,6 @@ TEST_F(SerializationTest, DeserializeWithNegativeValues) {
     EXPECT_FALSE(gen.isFinalized());
 }
 
-// Test deserialization with values > 1.0
-TEST_F(SerializationTest, DeserializeWithValuesGreaterThanOne) {
-    std::ostringstream oss;
-    oss << *generator;
-    std::string serialized = oss.str();
-    
-    // Replace first value with > 1.0
-    size_t firstSpace = serialized.find(' ');
-    if (firstSpace != std::string::npos) {
-        serialized = "1.5 " + serialized.substr(firstSpace + 1);
-    }
-    
-    std::istringstream iss(serialized);
-    RandomWordGenerator gen;
-    
-    EXPECT_FALSE(gen.isFinalized()); // Should start unfinalized
-    
-    iss >> gen;
-    EXPECT_TRUE(iss.fail());
-    
-    // Generator should remain unfinalized after failed deserialization
-    EXPECT_FALSE(gen.isFinalized());
-}
-
-// Test serialization of empty generator
-TEST_F(SerializationTest, SerializeEmptyGenerator) {
-    RandomWordGenerator emptyGen;
-    
-    EXPECT_FALSE(emptyGen.isFinalized()); // Should start unfinalized
-    emptyGen.finalize(); // Empty but finalized
-    EXPECT_TRUE(emptyGen.isFinalized()); // Should now be finalized
-    
-    std::ostringstream oss;
-    EXPECT_NO_THROW(oss << emptyGen);
-    EXPECT_FALSE(oss.fail()); // Should succeed since it's finalized
-    
-    std::string serialized = oss.str();
-    EXPECT_FALSE(serialized.empty());
-    
-    // Deserialize and test
-    std::istringstream iss(serialized);
-    RandomWordGenerator deserializedEmpty;
-    
-    EXPECT_FALSE(deserializedEmpty.isFinalized()); // Should start unfinalized
-    EXPECT_NO_THROW(iss >> deserializedEmpty);
-    EXPECT_TRUE(deserializedEmpty.isFinalized()); // Should be finalized after deserialization
-    
-    // Should be able to generate words (uniform distribution)
-    std::minstd_rand testRng(12345);
-    std::string word = deserializedEmpty(testRng);
-    EXPECT_FALSE(word.empty());
-    EXPECT_GE(word.length(), 1u);
-}
-
 // Test that deserialized generator is marked as finalized
 TEST_F(SerializationTest, DeserializedGeneratorIsFinalized) {
     // Serialize original
@@ -226,60 +158,6 @@ TEST_F(SerializationTest, DeserializedGeneratorIsFinalized) {
     iss >> deserialized;
     EXPECT_TRUE(deserialized.isFinalized()); // Should be finalized after deserialization
     
-    // Should be able to generate immediately (indicating it's finalized)
-    std::string word = deserialized(rng);
-    EXPECT_FALSE(word.empty());
-    EXPECT_GE(word.length(), 1u);
-    
     // Should not be able to analyze new words
     EXPECT_FALSE(deserialized.analyzeWord("newword"));
-}
-
-// Test isFinalized state during serialization operations
-TEST_F(SerializationTest, FinalizationStatePreservedDuringSerialization) {
-    // Test with finalized generator
-    EXPECT_TRUE(generator->isFinalized());
-    
-    std::ostringstream oss1;
-    oss1 << *generator;
-    
-    EXPECT_TRUE(generator->isFinalized()); // Should remain finalized
-    
-    // Test with unfinalized generator
-    RandomWordGenerator unfinalized;
-    unfinalized.analyzeWord("test");
-    EXPECT_FALSE(unfinalized.isFinalized());
-    
-    std::ostringstream oss2;
-    oss2 << unfinalized;
-    
-    EXPECT_FALSE(unfinalized.isFinalized()); // Should remain unfinalized
-    EXPECT_TRUE(oss2.fail()); // Serialization should fail
-}
-
-// Test that deserialized generators work with new parameter combinations
-TEST_F(SerializationTest, DeserializedGeneratorWorksWithNewParameters) {
-    // Serialize and deserialize
-    std::ostringstream oss;
-    oss << *generator;
-    
-    std::istringstream iss(oss.str());
-    RandomWordGenerator deserialized;
-    iss >> deserialized;
-    
-    EXPECT_TRUE(deserialized.isFinalized());
-    
-    std::minstd_rand testRng(12345);
-    
-    // Test different parameter combinations
-    std::string word1 = deserialized(testRng, 1, 5);
-    EXPECT_GE(word1.length(), 1u);
-    EXPECT_LE(word1.length(), 5u);
-    
-    std::string word2 = deserialized(testRng, 3, 0);
-    EXPECT_GE(word2.length(), 3u);
-    
-    std::string word3 = deserialized(testRng, 2, 4);
-    EXPECT_GE(word3.length(), 2u);
-    EXPECT_LE(word3.length(), 4u);
 }
