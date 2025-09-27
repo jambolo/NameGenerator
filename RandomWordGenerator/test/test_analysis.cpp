@@ -20,12 +20,6 @@ TEST_F(AnalysisTest, AnalyzeSingleWord) {
     EXPECT_TRUE(generator->isFinalized()); // Should now be finalized
 }
 
-// Test analyzing word with null pointer
-TEST_F(AnalysisTest, AnalyzeNullWord) {
-    EXPECT_FALSE(generator->analyzeWord(nullptr));
-    EXPECT_FALSE(generator->isFinalized()); // Should remain unfinalized
-}
-
 // Test analyzing empty word
 TEST_F(AnalysisTest, AnalyzeEmptyWord) {
     EXPECT_FALSE(generator->analyzeWord(""));
@@ -90,12 +84,6 @@ TEST_F(AnalysisTest, AnalyzeText) {
     EXPECT_FALSE(generator->isFinalized()); // Should remain unfinalized
     EXPECT_NO_THROW(generator->finalize());
     EXPECT_TRUE(generator->isFinalized());
-}
-
-// Test analyzing text with null pointer
-TEST_F(AnalysisTest, AnalyzeNullText) {
-    EXPECT_FALSE(generator->analyzeText(nullptr));
-    EXPECT_FALSE(generator->isFinalized()); // Should remain unfinalized
 }
 
 // Test analyzing empty text

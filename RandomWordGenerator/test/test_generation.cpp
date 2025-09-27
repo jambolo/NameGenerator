@@ -66,7 +66,7 @@ TEST_F(GenerationTest, GenerationWithSingleCharacterTraining)
     singleGen.finalize();
 
     std::minstd_rand testRng(12345);
-    std::string word = singleGen(testRng);
+    std::string      word = singleGen(testRng);
 
     EXPECT_FALSE(word.empty());
     EXPECT_GE(word.length(), 1u);
@@ -89,7 +89,7 @@ TEST_F(GenerationTest, AutoFinalizationOnGeneration)
 
     // Don't call finalize() explicitly
     std::minstd_rand testRng(12345);
-    std::string word = autoGen(testRng);
+    std::string      word = autoGen(testRng);
 
     EXPECT_FALSE(word.empty());
     EXPECT_GE(word.length(), 1u);
@@ -108,10 +108,9 @@ TEST_F(GenerationTest, AutoFinalizationWithEmptyGenerator)
     EXPECT_FALSE(emptyGen.isFinalized()); // Should not be finalized yet
 
     std::minstd_rand testRng(12345);
-    std::string word = emptyGen(testRng);
+    std::string      word = emptyGen(testRng);
 
-    EXPECT_FALSE(word.empty());
-    EXPECT_GE(word.length(), 1u);
+    EXPECT_TRUE(word.empty());
 
     // Should now be finalized after calling operator()
     EXPECT_TRUE(emptyGen.isFinalized());

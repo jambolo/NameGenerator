@@ -6,23 +6,10 @@
 #include <iostream>
 
 RandomWordGenerator::RandomWordGenerator()
-    : frequencies_{}
+    : transitionMatrix_{}
     , cdfs_{}
     , finalized_{false}
 {
-}
-
-//! @param    table    Distribution function table
-
-RandomWordGenerator::RandomWordGenerator(Table table)
-    : frequencies_{}
-    , finalized_{true}
-{
-    // Copy table row by row into cdfs_
-    for (size_t i = 0; i < cdfs_.size(); ++i)
-    {
-        std::copy(table[i], table[i] + cdfs_[i].size(), cdfs_[i].begin());
-    }
 }
 
 //! @param  word    Word to process
@@ -39,16 +26,15 @@ bool RandomWordGenerator::analyzeWord(std::string_view word, float factor /*= 1.
     if (!std::all_of(word.begin(), word.end(), [](char c) { return ALPHABET.find(c) != std::string_view::npos; }))
         return false;
 
-    size_t i0 = TERMINATOR;
+    char c0 = TERMINATOR;
     for (auto c : word)
     {
-        auto i = ALPHABET.find(c);
-        frequencies_[i0][i] += factor;
-        i0 = i;
+        transitionMatrix_[c0][c] += factor;
+        c0 = c;
     }
 
-    // Add the distribution for the terminator
-    frequencies_[i0][TERMINATOR] += factor;
+    // Add the implicit transition to the terminator
+    transitionMatrix_[c0][TERMINATOR] += factor;
 
     return true;
 }
@@ -96,34 +82,28 @@ void RandomWordGenerator::finalize()
     if (finalized_)
         return;
 
-    // Convert frequencies to cumulative distribution functions
-    for (size_t j = 0; j <= ALPHABET_SIZE; ++j)
+    // Initialize the CDF for each transition from each character
+    for (auto & entry : transitionMatrix_)
     {
-        float sum = 0.0f;
-        for (size_t k = 0; k <= ALPHABET_SIZE; ++k)
-        {
-            sum += frequencies_[j][k];
-            cdfs_[j][k] = sum;
-        }
+        auto & cdf = cdfs_[entry.first];
+        auto & row = entry.second;
+        float  sum = 0.0f;
+
+        // Compute the cumulative occurrences for each entry in the row and store it in the CDF. Also compute the total sum of
+        // occurrences to normalize later.
+        cdf.resize(row.size()); // Create a CDF with the same number of entries as the row
+        std::transform(row.begin(), row.end(), cdf.begin(), [&sum](auto const & e) { return Edge{e.first, sum += e.second}; });
+
+        // Divide by final sum to get the probabilities. If the sum is zero, then all entries remain zero.
         if (sum > 0.0f)
-        {
-            for (size_t k = 0; k <= ALPHABET_SIZE; ++k)
-            {
-                cdfs_[j][k] /= sum;
-            }
-        }
-        else
-        {
-            // If there were no frequencies, then make the distribution uniform
-            float p = 1.0f / (ALPHABET_SIZE + 1);
-            for (size_t k = 0; k <= ALPHABET_SIZE; ++k)
-            {
-                cdfs_[j][k] = p * (k + 1);
-            }
-        }
+            std::for_each(row.begin(), row.end(), [sum](auto & e) { e.second /= sum; });
+
+        // Divide by final sum to get the cumulative distribution function. If the sum is zero, then all entries remain zero.
+        if (sum > 0.0f)
+            std::for_each(cdf.begin(), cdf.end(), [sum](auto & e) { e.p /= sum; });
     }
 
-    // Mark the generator as finalized. frequencies_ is no longer considered valid
+    // Mark the generator as finalized.
     finalized_ = true;
 }
 
@@ -141,58 +121,26 @@ std::string RandomWordGenerator::operator()(std::minstd_rand & rng)
     std::string word;
 
     // Generate
-    for (size_t i0 = next(rng, TERMINATOR); i0 != TERMINATOR; i0 = next(rng, i0))
-    {
-        word += toCharacter(i0);
-    }
+    for (char c = next(rng, TERMINATOR); c != TERMINATOR; c = next(rng, c))
+        word += c;
 
     return word;
 }
 
-size_t RandomWordGenerator::next(std::minstd_rand & rng, size_t i0)
+char RandomWordGenerator::next(std::minstd_rand & rng, char c)
 {
-    assert(i0 <= ALPHABET_SIZE);
-    auto const & cdf = cdfs_[i0];
-    auto         i   = std::upper_bound(cdf.begin(), cdf.end(), randomFloat_(rng));
-    // Note: end is possible due to rounding errors
-    return (i != cdf.end()) ? std::distance(cdf.begin(), i) : TERMINATOR;
-}
+    auto pCdf = cdfs_.find(c);
 
-std::ostream & operator<<(std::ostream & s, RandomWordGenerator const & g)
-{
-    // If the generator has not been finalized, then fail
-    if (!g.finalized_)
-    {
-        s.setstate(std::ios::failbit);
-        return s;
-    }
+    // If the CDF for the given character doesn't exist, return the terminator
+    if (pCdf == cdfs_.end())
+        return TERMINATOR;
 
-    for (auto const & row : g.cdfs_)
-    {
-        for (float value : row)
-        {
-            s << value << ' ';
-        }
-    }
-    return s;
-}
+    auto const & cdf = pCdf->second;
+    auto         pE = std::upper_bound(cdf.begin(), cdf.end(), randomFloat_(rng), [](float v, auto const & e) { return v < e.p; });
 
-std::istream & operator>>(std::istream & s, RandomWordGenerator & g)
-{
-    for (int i = 0; i < RandomWordGenerator::ALPHABET_SIZE + 1; ++i)
-    {
-        for (int j = 0; j < RandomWordGenerator::ALPHABET_SIZE + 1; ++j)
-        {
-            float p;
-            s >> p;
-            if (s.fail() || p < 0.0f || p > 1.0f)
-            {
-                s.setstate(std::ios::failbit);
-                return s;
-            }
-            g.cdfs_[i][j] = p;
-        }
-    }
-    g.finalized_ = true;
-    return s;
+    // upper_bound can return end() due to rounding errors or if all entries are zero
+    if (pE == cdf.end())
+        return cdf.back().c; // Use the last entry
+
+    return pE->c;
 }

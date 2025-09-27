@@ -27,7 +27,6 @@ add_executable(RandomWordGenerator_tests
     test_generator.cpp
     test_analysis.cpp
     test_generation.cpp
-    test_serialization.cpp
 )
 
 target_link_libraries(RandomWordGenerator_tests
