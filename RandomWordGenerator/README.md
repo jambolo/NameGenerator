@@ -3,12 +3,12 @@
 RandomWordGenerator is a C++ library for generating random words based on statistical analysis of input data. It is designed to be
 used as a backend for applications that require realistic word or name generation.
 
-The generator is based on a unigram Markov chain model.
+The generator is based on a Markov-like chain model. The next character in a generated word is chosen based on the preceding three characters.
 
 ## Features
 
 - Learns character transition probabilities from input words or text
-- Supports custom training via `analyzeWord` and `analyzeText`
+- Supports training via `analyzeWord` and `analyzeText`
 - Markov chain-like model using a configurable alphabet and word terminator
 - Serialization and deserialization support for saving/loading generator state
 - Unit tested with GoogleTest
@@ -18,7 +18,6 @@ The generator is based on a unigram Markov chain model.
 ### Construction
 ```cpp
 RandomWordGenerator();
-RandomWordGenerator(RandomWordGenerator::Table table);
 ```
 
 ### Training
@@ -34,13 +33,6 @@ void finalize();
 std::string operator()(std::minstd_rand& rng);
 ```
 - Generates a word using the trained model and provided random number generator.
-
-### Serialization
-```cpp
-std::ostream& operator<<(std::ostream& s, const RandomWordGenerator& g);
-std::istream& operator>>(std::istream& s, RandomWordGenerator& g);
-```
-- Save/load generator state for reuse.
 
 ## Requirements
 

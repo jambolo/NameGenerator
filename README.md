@@ -1,13 +1,12 @@
 # NameGenerator
 
 NameGenerator is a C++ application that generates random names using statistical analysis of name distributions. It leverages the
-RandomWordGenerator library to produce realistic-sounding names based on input frequency data. A unigram markov chain is used, and to
-be honest, the results are poor.
+RandomWordGenerator library to produce realistic-sounding names based on input frequency data. A markov-like chain is used.
 
 ## Features
 
 - Generates male, female, and last names using customizable name distribution files.
-- Uses Markov chain analysis for realistic name generation.
+- Uses Markov-like chain analysis for realistic name generation.
 - Command-line interface with name length constraints.
 - Supports minimum and maximum length constraints for generated names.
 - Outputs 10 male and 10 female full names (first + last) per run.

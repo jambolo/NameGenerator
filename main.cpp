@@ -1,11 +1,13 @@
-#include <CLI/CLI.hpp>
 #include <RandomWordGenerator/Generator.h>
+
+#include <CLI/CLI.hpp>
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <string_view>
 
@@ -14,9 +16,9 @@ namespace fs = std::filesystem;
 namespace
 {
 // Use string_view and relative paths or make configurable
-static constexpr std::string_view MALE_NAME_DISTRIBUTION_FILE_NAME   = "dist.male.first.txt";
-static constexpr std::string_view FEMALE_NAME_DISTRIBUTION_FILE_NAME = "dist.female.first.txt";
-static constexpr std::string_view LAST_NAME_DISTRIBUTION_FILE_NAME   = "dist.all.last.txt";
+std::string_view constexpr MALE_NAME_DISTRIBUTION_FILE_NAME   = "dist.male.first.txt";
+std::string_view constexpr FEMALE_NAME_DISTRIBUTION_FILE_NAME = "dist.female.first.txt";
+std::string_view constexpr LAST_NAME_DISTRIBUTION_FILE_NAME   = "dist.all.last.txt";
 
 std::unique_ptr<RandomWordGenerator> createGeneratorFromDistribution(std::string_view filename);
 }
@@ -144,7 +146,7 @@ std::unique_ptr<RandomWordGenerator> createGeneratorFromDistribution(std::string
         if (iss >> name >> frequency >> cumulative >> rank)
         {
             // Use lambda for character transformation
-            std::transform(name.begin(), name.end(), name.begin(), [](char c) { return std::tolower(c); });
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::tolower(c); });
             generator->analyzeWord(name, frequency);
         }
     }

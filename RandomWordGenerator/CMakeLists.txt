@@ -195,7 +195,6 @@ else()
     # Create a basic config file if template doesn't exist
     file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake "
 include(CMakeFindDependencyMacro)
-find_dependency(Misc REQUIRED)
 include(\${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}Targets.cmake)
 ")
 endif()
