@@ -30,7 +30,7 @@ void finalize();
 
 ### Generation
 ```cpp
-std::string operator()(std::minstd_rand& rng);
+std::string generate(std::minstd_rand& rng);
 ```
 - Generates a word using the trained model and provided random number generator.
 
@@ -38,10 +38,6 @@ std::string operator()(std::minstd_rand& rng);
 
 - C++17 compiler
 - CMake >= 3.21
-
-## Building
-
-This library is built as part of the NameGenerator project. See the top-level [README](../README.md) for build instructions.
 
 ## Testing
 
@@ -52,7 +48,3 @@ cmake -DRANDOMWORDGEN_BUILD_TESTS=ON -G Ninja ..
 ninja
 ctest
 ```
-
-## License
-
-See [LICENSE](../LICENSE) for details.

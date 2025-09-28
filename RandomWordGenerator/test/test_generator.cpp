@@ -21,6 +21,14 @@ TEST_F(RandomWordGeneratorTest, Construction)
     EXPECT_NO_THROW(RandomWordGenerator gen);
 }
 
+// Test construction with custom alphabet
+TEST_F(RandomWordGeneratorTest, ConstructionWithCustomAlphabet)
+{
+    EXPECT_NO_THROW(RandomWordGenerator gen("abc"));
+    EXPECT_NO_THROW(RandomWordGenerator gen("0123456789"));
+    EXPECT_NO_THROW(RandomWordGenerator gen("xyz"));
+}
+
 // Test initial finalization state
 TEST_F(RandomWordGeneratorTest, InitialFinalizationState)
 {
@@ -48,7 +56,7 @@ TEST_F(RandomWordGeneratorTest, FinalizeEmptyGenerator)
     EXPECT_TRUE(generator->isFinalized());
 
     // Should generate nothing
-    std::string result = (*generator)(rng);
+    std::string result = generator->generate(rng);
     EXPECT_TRUE(result.empty());
 }
 
@@ -88,9 +96,30 @@ TEST_F(RandomWordGeneratorTest, AnalyzeTextFailsAfterFinalization)
     EXPECT_FALSE(generator->analyzeText("more text")); // Should fail after finalization
 }
 
-// Test alphabet constants
-TEST_F(RandomWordGeneratorTest, AlphabetConstants)
+// Test copy constructor and move semantics (assignment not supported due to const members)
+TEST_F(RandomWordGeneratorTest, CopyConstructorAndMoveSemantics)
 {
-    EXPECT_EQ(RandomWordGenerator::ALPHABET, "abcdefghijklmnopqrstuvwxyz");
-    EXPECT_EQ(RandomWordGenerator::TERMINATOR, 0);
+    generator->analyzeWord("test");
+    generator->analyzeWord("word");
+
+    // Test copy constructor
+    RandomWordGenerator copy(*generator);
+    EXPECT_EQ(copy.isFinalized(), generator->isFinalized());
+
+    // Both instances should be able to finalize independently
+    copy.finalize();
+    EXPECT_TRUE(copy.isFinalized());
+    EXPECT_FALSE(generator->isFinalized()); // Original should still be unfinalized
+
+    // Test move constructor
+    generator->analyzeWord("another");
+    bool original_finalized = generator->isFinalized();
+    RandomWordGenerator moved(std::move(*generator));
+    EXPECT_EQ(moved.isFinalized(), original_finalized);
+
+    // Test move assignment
+    RandomWordGenerator generator2;
+    generator2.analyzeWord("another");
+    RandomWordGenerator move_assigned = std::move(generator2);
+    EXPECT_FALSE(move_assigned.isFinalized());
 }

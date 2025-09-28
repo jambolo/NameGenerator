@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <functional>
 #include <random>
 #include <string>
 #include <string_view>
@@ -11,42 +10,64 @@
 #include <unordered_map>
 #include <vector>
 
+//! Generates random words using a Markov-like model based on character transition analysis.
+//!
+//! The RandomWordGenerator learns character transition probabilities from input words or text and uses this information to
+//! generate realistic-sounding words. The generator uses a third-order Markov model where the next character is chosen based on
+//! the preceding three characters (trigram analysis).
+//!
+//! ## Typical Usage:
+//! 1. Create a generator with the desired alphabet
+//! 2. Train it by analyzing sample words or text using analyzeWord() or analyzeText()
+//! 3. Finalize the generator to prepare transition probabilities
+//! 4. Generate random words using generate()
+//!
+//! @code
+//! RandomWordGenerator generator;
+//! generator.analyzeWord("hello");
+//! generator.analyzeWord("world");
+//! generator.finalize();
+//!
+//! std::minstd_rand rng;
+//! std::string randomWord = generator.generate(rng);
+//! @endcode
+//!
+//! The generator supports custom alphabets and weighted training data. Words containing characters outside the specified alphabet
+//! are ignored during training.
+//!
+//! @note   The generator must be finalized before generating words. If not done explicitly,
+//!         finalization occurs automatically on first use.
+//! @note   The class is copyable and movable.
 class RandomWordGenerator
 {
 public:
-    static constexpr char TERMINATOR = 0; // Value of the terminator character.
-
-    //! Constructor.
+    //! Constructs a generator using the default alphabet (lowercase English letters).
     RandomWordGenerator();
 
-    //! Constructor.
+    //! Constructs a generator using a custom alphabet.
     explicit RandomWordGenerator(std::string_view alphabet);
 
-    //! Destructor.
-    ~RandomWordGenerator() = default;
-
-    // Non-copyable but movable
-    RandomWordGenerator(RandomWordGenerator const &)             = delete;
-    RandomWordGenerator & operator=(RandomWordGenerator const &) = delete;
-    RandomWordGenerator(RandomWordGenerator &&)                  = default;
-    RandomWordGenerator & operator=(RandomWordGenerator &&)      = default;
-
-    //! Adds a word to the distribution table.
+    //! Adds a word to the generator's transition graph.
     bool analyzeWord(std::string_view word, float factor = 1.0f);
 
-    //! Adds words from the text to the distribution table.
+    //! Adds words from the text to the generator's transition graph.
     bool analyzeText(std::string_view text, float factor = 1.0f);
 
-    //! Finalizes the generator.
+    //! Finalizes the generator, allowing words to be generated.
     void finalize();
 
     //! Checks if the generator has been finalized.
+    //!
+    //! @return     true if the generator has been finalized, false otherwise.
     [[nodiscard]] bool isFinalized() const { return finalized_; }
 
-    //! Returns a generated word.
-    [[nodiscard]] std::string operator()(std::minstd_rand & rng);
+    //! Generates a random word using the transition graph.
+    [[nodiscard]] std::string generate(std::minstd_rand & rng);
 
 private:
+    // Value of the terminator character.
+    static constexpr char TERMINATOR = 0;
+
     using State = std::tuple<char, char, char>;
     struct Edge
     {

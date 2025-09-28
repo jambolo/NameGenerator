@@ -1,3 +1,5 @@
+# RandomWordGenerator Library
+
 cmake_minimum_required(VERSION 3.21)
 project(RandomWordGenerator 
     VERSION 0.1.0 
