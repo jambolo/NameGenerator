@@ -67,6 +67,52 @@ James 0.011 0.023 2
 ```
 Only the `name` and `frequency` fields are used; `cumulative` and `rank` are ignored. `name` is treated as case-insensitive.
 
+### generate_words
+Generates random words using dictionary analysis of word datasets.
+
+**Usage:**
+```bash
+generate_words [OPTIONS]
+```
+
+**Options:**
+- `-v, --version`: Show version information
+- `--count COUNT`: Number of words to generate (default: 10)
+- `--min SIZE`: Minimum word size (default: 1)
+- `--max SIZE`: Maximum word size (default: no limit)
+
+**Examples:**
+```bash
+# Generate 5 words
+generate_words --count 5
+
+# Generate 10 words with minimum length of 4 characters
+generate_words --count 10 --min 4
+
+# Generate 3 words between 5 and 8 characters
+generate_words --count 3 --min 5 --max 8
+```
+
+**Dictionary Files:**
+
+The application expects a dictionary file named `count_1w.txt` in the executable's directory by default.
+
+Each line should be formatted as:
+```
+word count
+```
+
+Example:
+```
+the 23135851162
+of 13151942776
+and 12997637966
+...
+```
+
+The `word` field is treated as case-insensitive and converted to lowercase. The `count` field is used as a weight for the word generation algorithm.
+
+
 ## Build Output
 
 Both executables are built to the `build/bin/` directory.

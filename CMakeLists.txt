@@ -71,6 +71,7 @@ add_subdirectory(RandomWordGenerator)
 
 # Add subdirectories for each executable
 add_subdirectory(apps/generate_names)
+add_subdirectory(apps/generate_words)
 
 #########################################################################
 # Testing                                                               #

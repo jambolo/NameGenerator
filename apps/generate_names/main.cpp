@@ -79,7 +79,7 @@ int main(int argc, char ** argv)
     // Handle version flag
     if (version)
     {
-        std::cout << "Name Generator v0.3.0\n";
+        std::cout << "generate_names v0.3.0\n";
         return 0;
     }
 
