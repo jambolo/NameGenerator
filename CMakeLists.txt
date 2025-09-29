@@ -1,7 +1,9 @@
+# NameGenerator Project
+
 cmake_minimum_required(VERSION 3.21)
 project(NameGenerator 
-    VERSION 0.1.0 
-    DESCRIPTION "A name generator application using RandomWordGenerator library"
+    VERSION 0.3.0 
+    DESCRIPTION "Words generator applications using RandomWordGenerator library"
     LANGUAGES CXX
 )
 
@@ -49,7 +51,6 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-
 #########################################################################
 # Dependencies                                                          #
 #########################################################################
@@ -65,34 +66,11 @@ FetchContent_MakeAvailable(CLI11)
 add_subdirectory(RandomWordGenerator)
 
 #########################################################################
-# Executable                                                            #
+# Executables                                                           #
 #########################################################################
 
-# Main executable target
-add_executable(generate_name)
-target_sources(generate_name
-    PRIVATE
-        main.cpp
-)
-
-# Modern target-based approach
-target_include_directories(generate_name 
-    PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-target_link_libraries(generate_name 
-    PRIVATE
-        RandomWordGenerator::RandomWordGenerator
-        CLI11::CLI11
-)
-
-# Apply the same compile features as the library
-target_compile_features(generate_name PRIVATE cxx_std_17)
-
-# IDE source grouping
-source_group("Source Files" FILES main.cpp)
-
+# Add subdirectories for each executable
+add_subdirectory(apps/generate_names)
 
 #########################################################################
 # Testing                                                               #
