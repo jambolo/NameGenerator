@@ -1,8 +1,8 @@
 # RandomWordGenerator Library
 
 cmake_minimum_required(VERSION 3.21)
-project(RandomWordGenerator 
-    VERSION 0.1.0 
+project(RandomWordGenerator
+    VERSION 0.1.0
     DESCRIPTION "A library for generating random words using distribution analysis of a dictionary"
     LANGUAGES CXX
 )
@@ -16,7 +16,10 @@ include(CMakeDependentOption)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# Build options
+#########################################################################
+# Build settings                                                        #
+#########################################################################
+
 option(BUILD_SHARED_LIBS "Build libraries as DLLs" OFF)
 
 # Only enable certain features when this is the main project
@@ -25,23 +28,52 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(IS_TOP_LEVEL_PROJECT ON)
 endif()
 
-cmake_dependent_option(RANDOMWORDGEN_BUILD_TESTS 
-    "Build and run RandomWordGenerator tests" 
-    ON 
-    "IS_TOP_LEVEL_PROJECT" 
+cmake_dependent_option(${PROJECT_NAME}_BUILD_TESTS
+    "Build and run RandomWordGenerator tests"
+    ON
+    "IS_TOP_LEVEL_PROJECT"
     OFF
 )
 
-cmake_dependent_option(RANDOMWORDGEN_BUILD_DOCS 
-    "Build RandomWordGenerator documentation with Doxygen" 
-    OFF 
-    "IS_TOP_LEVEL_PROJECT" 
-    OFF
-)
+if(IS_TOP_LEVEL_PROJECT)
+    set(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY "" CACHE PATH "Doxygen output directory (empty to disable)")
+else()
+    set(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY "")
+endif()
+
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+# Set debug postfix if not set
+if(NOT CMAKE_DEBUG_POSTFIX)
+    set(CMAKE_DEBUG_POSTFIX d)
+endif()
 
 #########################################################################
 # Dependencies                                                          #
 #########################################################################
+
+if (${PROJECT_NAME}_BUILD_TESTS)
+    include(FetchContent)
+    FetchContent_Declare(
+        GoogleTest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.17.0
+    )
+    FetchContent_MakeAvailable(GoogleTest)
+endif()
+
+# include(FetchContent)
+# FetchContent_Declare(
+#     nlohmann_json
+#     GIT_REPOSITORY https://github.com/nlohmann/json.git
+#     GIT_TAG v3.12.0
+#     GIT_SHALLOW TRUE
+# )
+# FetchContent_MakeAvailable(nlohmann_json)
 
 #########################################################################
 # Main Library Target                                                   #
@@ -50,21 +82,20 @@ cmake_dependent_option(RANDOMWORDGEN_BUILD_DOCS
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-# Modern target_sources approach
-target_sources(${PROJECT_NAME}
-    PUBLIC
-        FILE_SET HEADERS
-        BASE_DIRS include
-        FILES
-            include/RandomWordGenerator/Generator.h
-    PRIVATE
-        Generator.cpp
+set(SOURCES
+    include/RandomWordGenerator/Generator.h
+    Generator.cpp
 )
+
+target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
 # Target properties
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
-set_target_properties(${PROJECT_NAME} 
-    PROPERTIES 
+set_target_properties(${PROJECT_NAME}
+    PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR}
@@ -84,6 +115,7 @@ target_include_directories(${PROJECT_NAME}
 
 # Compiler-specific definitions
 if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
     target_compile_definitions(${PROJECT_NAME}
         PRIVATE
             NOMINMAX
@@ -93,36 +125,26 @@ if(MSVC)
             _SECURE_SCL=0
             _SCL_SECURE_NO_WARNINGS
     )
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
-# IDE source grouping
-source_group("Header Files" 
-    FILES 
-        include/RandomWordGenerator/Generator.h
-        include/RandomWordGenerator/Factory.h
-)
-source_group("Source Files" 
-    FILES 
-        Generator.cpp 
-        Factory.cpp
-)
 
 #########################################################################
 # Documentation                                                         #
 #########################################################################
 
-if(RANDOMWORDGEN_BUILD_DOCS)
+if(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY)
     find_package(Doxygen)
     if(DOXYGEN_FOUND)
-        set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs)
+        set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY)
         set(DOXYGEN_PROJECT_NAME ${PROJECT_NAME})
         set(DOXYGEN_PROJECT_VERSION ${PROJECT_VERSION})
         set(DOXYGEN_PROJECT_BRIEF "${PROJECT_DESCRIPTION}")
-        
-        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in 
-                      ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile 
+
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
+                      ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
                       @ONLY)
-        
+
         add_custom_target(${PROJECT_NAME}_docs
             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -130,13 +152,14 @@ if(RANDOMWORDGEN_BUILD_DOCS)
             VERBATIM
             SOURCES ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
         )
-        
-        # Add to all target only if this is the main project
-        if(IS_TOP_LEVEL_PROJECT)
-            add_custom_target(docs ALL DEPENDS ${PROJECT_NAME}_docs)
-        endif()
+
+        add_custom_target(docs ALL DEPENDS ${PROJECT_NAME}_docs)
     else()
         message(WARNING "Doxygen not found. Documentation will not be generated.")
+    endif()
+else()
+    if(IS_TOP_LEVEL_PROJECT)
+        message(STATUS "${PROJECT_NAME}: Documentation generation is disabled. Set ${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY to enable.")
     endif()
 endif()
 
@@ -144,15 +167,20 @@ endif()
 # Testing                                                               #
 #########################################################################
 
-if(RANDOMWORDGEN_BUILD_TESTS)
+if(${PROJECT_NAME}_BUILD_TESTS)
+    include(GoogleTest)
     include(CTest)
     enable_testing()
     message(STATUS "${PROJECT_NAME}: Testing is enabled")
-    
+
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
         add_subdirectory(test)
     else()
         message(WARNING "${PROJECT_NAME}: test directory not found")
+    endif()
+else()
+    if(IS_TOP_LEVEL_PROJECT)
+        message(STATUS "${PROJECT_NAME}: Testing is disabled. Set ${PROJECT_NAME}_BUILD_TESTS to ON to enable.")
     endif()
 endif()
 
@@ -209,8 +237,8 @@ install(FILES
 )
 
 # Export from build tree for development
-export(EXPORT ${PROJECT_NAME}-targets 
-    FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake 
+export(EXPORT ${PROJECT_NAME}-targets
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
     NAMESPACE ${PROJECT_NAME}::
 )
 
@@ -220,7 +248,7 @@ if(IS_TOP_LEVEL_PROJECT)
 endif()
 
 # Install documentation if built
-if(RANDOMWORDGEN_BUILD_DOCS AND DOXYGEN_FOUND)
+if(${PROJECT_NAME}_BUILD_DOCS AND DOXYGEN_FOUND)
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/
             DESTINATION ${CMAKE_INSTALL_DOCDIR}
             OPTIONAL)

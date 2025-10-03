@@ -18,19 +18,6 @@ include(GNUInstallDirs)
 # Build options
 option(BUILD_SHARED_LIBS "Build libraries as DLLs" OFF)
 
-# Only enable testing and packaging when this is the main project
-set(IS_TOP_LEVEL_PROJECT OFF)
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    set(IS_TOP_LEVEL_PROJECT ON)
-endif()
-
-cmake_dependent_option(NAMEGEN_BUILD_TESTS 
-    "Build and run tests" 
-    ON 
-    "IS_TOP_LEVEL_PROJECT" 
-    OFF
-)
-
 # C++ standard requirements
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -59,7 +46,7 @@ include(FetchContent)
 FetchContent_Declare(
     CLI11
     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG        v2.4.2
+    GIT_TAG        v2.5.0
 )
 FetchContent_MakeAvailable(CLI11)
 
@@ -72,16 +59,3 @@ add_subdirectory(RandomWordGenerator)
 # Add subdirectories for each executable
 add_subdirectory(apps/generate_names)
 add_subdirectory(apps/generate_words)
-
-#########################################################################
-# Testing                                                               #
-#########################################################################
-
-if(NAMEGEN_BUILD_TESTS)
-    include(CTest)
-    enable_testing()
-    message(STATUS "${PROJECT_NAME}: Testing is enabled")
-    
-    # Enable testing for the RandomWordGenerator library
-    set(RANDOMWORDGEN_BUILD_TESTS ON CACHE BOOL "" FORCE)
-endif()
