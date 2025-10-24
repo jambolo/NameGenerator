@@ -76,7 +76,7 @@ endif()
 # FetchContent_MakeAvailable(nlohmann_json)
 
 #########################################################################
-# Main Library Target                                                   #
+# Build                                                                 #
 #########################################################################
 
 add_library(${PROJECT_NAME})
@@ -90,18 +90,6 @@ set(SOURCES
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 
-# Target properties
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
-set_target_properties(${PROJECT_NAME}
-    PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR}
-)
-
-# Include directories using modern generator expressions
 target_include_directories(${PROJECT_NAME}
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -111,9 +99,6 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/include/RandomWordGenerator
 )
 
-# Link dependencies
-
-# Compiler-specific definitions
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
     target_compile_definitions(${PROJECT_NAME}
@@ -129,6 +114,17 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+
+#configure_file("${PROJECT_SOURCE_DIR}/Version.h.in" "${PROJECT_BINARY_DIR}/Version.h")
+
 #########################################################################
 # Documentation                                                         #
 #########################################################################
@@ -136,11 +132,7 @@ endif()
 if(${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY)
     find_package(Doxygen)
     if(DOXYGEN_FOUND)
-        set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY)
-        set(DOXYGEN_PROJECT_NAME ${PROJECT_NAME})
-        set(DOXYGEN_PROJECT_VERSION ${PROJECT_VERSION})
-        set(DOXYGEN_PROJECT_BRIEF "${PROJECT_DESCRIPTION}")
-
+        set(DOXYGEN_OUTPUT_DIRECTORY ${${PROJECT_NAME}_DOXYGEN_OUTPUT_DIRECTORY})
         configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in
                       ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
                       @ONLY)
@@ -211,7 +203,7 @@ install(EXPORT ${PROJECT_NAME}-targets
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion  # More strict than AnyNewerVersion
+    COMPATIBILITY SameMajorVersion
 )
 
 # Check if config template exists
